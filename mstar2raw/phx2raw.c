@@ -37,7 +37,7 @@ struct MetaLine
 static float          byteswap_SR_IR();
 static unsigned short byteswap_SUS_IUS();
 static int            CheckByteOrder();
-void parseHeaderLine(struct MetaLine *metadata, char* buffer, int i);
+void parseHeaderLine(struct MetaLine *metadata, char* buffer);
 
 int main(argc, argv)
 
@@ -137,7 +137,7 @@ int main(argc, argv)
         exit(1);
     }
 
-    printf("\nmstar2raw conversion: started!\n\n");
+    // printf("\nmstar2raw conversion: started!\n\n");
 
     // Open the phx file for reading as a binary file
     MSTARfp = fopen(MSTARname, "rb");
@@ -154,6 +154,7 @@ int main(argc, argv)
     // NOTE: Use fread() instead of fgets().  We're reading in binary data and fgets is not meant for that
     // since any read character could be a '\0' symbol. That or it could never find it and cause a buffer overflow.
     size_t bytes_read = fread(buffer, sizeof(char), sizeof(buffer) / sizeof(char), MSTARfp);
+    fclose(MSTARfp);
 
     if (bytes_read == 0)
     {
@@ -162,7 +163,7 @@ int main(argc, argv)
     }
     else
     {
-      fprintf(stdout, "Finished reading binary file. Read %ld bytes from stream.\n", bytes_read);
+      // fprintf(stdout, "Finished reading binary file. Read %ld bytes from stream.\n", bytes_read);
     }
 
     char* header_end = strstr(buffer, "[EndofPhoenixHeader]");
@@ -174,12 +175,26 @@ int main(argc, argv)
       // of the start of the substring. Subtract the address of the start of the substring from the beginning of
       // the entire string to isolate the whole header.
       endIdx = header_end - buffer;
+
+      // Use the address of the header end to build a new buffer and store the entire header in it. Parse this for the metadata.
+      char header[endIdx+1];
+      header[endIdx] = '\0';
+      char *header_step = strncpy(header, buffer, endIdx);
+
+      // printf("%s\n\n\n", header);
+      // Parse the header and store it in the metadata container
+      parseHeaderLine(metadata, header);
     }
     else
     {
       fprintf(stderr, "Could not find the [EndofPhoenixHeader] flag. Exiting...\n");
       exit(1);
     }
+
+    // Move the pointer past the header end flag. Now we begin reading the body.
+    int bodyStart = endIdx;
+    while (buffer[bodyStart] != ']') { ++bodyStart; }
+    ++bodyStart;
 
     return 0;
 }
@@ -258,64 +273,6 @@ static int CheckByteOrder(void)
 }
 
 
-void parseHeaderLine(struct MetaLine *metadata, char* buffer, int i)
+void parseHeaderLine(struct MetaLine *metadata, char* buffer)
 {
-  // Declarations
-  int j = 0;
-  int tmp1Cntr = 0;
-  int tmp2Cntr = 0;
-  char tmp1[50];
-  char tmp2[50];
-
-  // Parse and store the prefix
-  while (buffer[j] != '=')
-  {
-    tmp1[tmp1Cntr++] = buffer[j++];
-  }
-
-  printf("Parsed Prefix\n");
-  printf("String: %s\n", tmp1);
-
-  strcpy(metadata[i].prefix, tmp1);
-
-  printf("Copied Prefix\n");
-  // Increment once to skip the '='
-  ++j;
-
-  char float_flag = 0;
-
-  // Parse the value portion
-  while (buffer[j] != '\0')
-  {
-    if (buffer[j] == '.')
-    {
-      float_flag = 1;
-      // printf("Float flag set\n");
-    }
-    printf("%c", buffer[j]);
-
-    tmp2[tmp2Cntr++] = buffer[j++];
-  }
-  printf("postifx parsed\n");
-  printf("After\n");
-  if (isdigit(tmp2) && float_flag == 0) // Integer
-  {
-    printf("Found Integer: %s\n", tmp2);
-    metadata[i].postfix.integer = atoi(tmp2);
-  }
-  else if (isdigit(tmp2) && float_flag == 1) // Floating point
-  {
-    printf("Found decimal: %s\n", tmp2);
-    metadata[i].postfix.decimal = atof(tmp2);
-  }
-  else if (isalpha(tmp2))
-  {
-    printf("Found string: %s\n", tmp2);
-    strcpy(metadata[i].postfix.string, tmp2);
-  }
-  else // Default string
-  {
-    printf("Something else\n");
-  }
-  printf("After2\n");
 }

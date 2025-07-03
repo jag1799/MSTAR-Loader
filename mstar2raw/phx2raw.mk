@@ -4,4 +4,7 @@ TARGET = phx2raw
 
 
 phx2raw:
-	gcc ${SRC} -o ${TARGET} ${OBJECTS}
+	gcc ${SRC} -o ${TARGET} -g
+
+clean:
+	-rm phx2raw
